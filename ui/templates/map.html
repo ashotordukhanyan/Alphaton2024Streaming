@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC Angel Routes</title>
+    <style>
+        /* Adjusting the dimensions of the map to be twice as large */
+        #map {
+            height: 1600px;
+            width: 1600px;
+            margin: 0 auto;
+        }
+    </style>
+    <!-- Include Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <!-- Include Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <!-- Include jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>NYC Angel Routes</h1>
+    <div id="map"></div>
+
+    <script>
+        var map; // Global variable to store the Leaflet map
+        var routeLayers = []; // Array to hold the polyline layers for the routes
+
+        // Initialize the map centered on Manhattan (without routes initially)
+        function initializeMap() {
+            map = L.map('map').setView([40.7831, -73.9712], 13); // Manhattan center
+
+            // Add OpenStreetMap tile layer to show streets
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            console.log("Map initialized, centered on Manhattan");
+        }
+
+        // Function to clear all route lines and markers from the map
+        function clearRoutes() {
+            routeLayers.forEach(function(layer) {
+                map.removeLayer(layer); // Remove each polyline or marker layer from the map
+            });
+            routeLayers = []; // Clear the array holding the polyline and marker layers
+        }
+
+        // Function to draw routes based on data from the server (start/end points with lines)
+        function drawRoutes(routes) {
+            clearRoutes(); // Clear old routes and markers before adding new ones
+
+            routes.forEach(function(route) {
+                var start = route.start; // Starting point (lat, lng)
+                var end = route.end;     // Ending point (lat, lng)
+
+                // Create a polyline between start and end points
+                var polyline = L.polyline([start, end], {color: route.color, weight: 4}).addTo(map);
+                routeLayers.push(polyline); // Store the polyline layer so it can be cleared later
+
+                // Add a start marker with a popup
+                var startMarker = L.marker(start).bindPopup(route.start_marker).addTo(map);
+                routeLayers.push(startMarker); // Store the start marker so it can be cleared later
+
+                // Add an end marker with a popup
+                var endMarker = L.marker(end).bindPopup(route.end_marker).addTo(map);
+                routeLayers.push(endMarker); // Store the end marker so it can be cleared later
+            });
+
+            console.log("Routes updated with markers on the map");
+        }
+
+        // Function to fetch route data from the Flask server
+        function fetchRoutes() {
+            console.log("Fetching route data from server...");
+
+            $.get('/routes')
+                .done(function(data) {
+                    drawRoutes(data.routes); // Pass the route data to the drawRoutes function
+                })
+                .fail(function(jqXHR, textStatus, errorThrown) {
+                    console.error("Error in fetching routes:", textStatus, errorThrown);
+                });
+        }
+
+        // Initialize the map on page load (no routes at the beginning)
+        initializeMap();
+
+        // Fetch route data immediately when the page loads
+        fetchRoutes(); // Fetch routes immediately
+
+        // Fetch route data every 20 seconds
+        setInterval(fetchRoutes, 20000); // Continue fetching new route data every 20 seconds
+    </script>
+</body>
+</html>
