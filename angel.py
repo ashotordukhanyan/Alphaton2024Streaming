@@ -70,11 +70,12 @@ def distances(stationIds: ts[List[str]], stationInfo: ts[Dict[str,GBFSStationInf
         return pd.DataFrame(data=distances, index=stationIds, columns=stationIds)
 
 
-GLOBAL_QUEUE = SimpleQueue()
 @csp.node
-def broadcast_rides(rides:ts[List[AngelRoute]]):
+def broadcast_rides(rides:ts[List[AngelRoute]], outQ:SimpleQueue):
+    ''' Broadcasts the rides to the global queue '''
     if csp.ticked(rides):
-        GLOBAL_QUEUE.put([r.to_dict() for r in rides])
+        if outQ is not None:
+            outQ.put([r.to_dict() for r in rides])
 
 @csp.node
 def angel_opportunities(stationOccupancyRates:csp.DynamicBasket[str,float], stationDistances:ts[pd.DataFrame],
@@ -106,7 +107,7 @@ def angel_opportunities(stationOccupancyRates:csp.DynamicBasket[str,float], stat
         return results
 
 @csp.graph
-def angel_main():
+def angel_main( outQ: SimpleQueue = None):
     stationInfos = GBFSStationInfoAdapter(timedelta(seconds = 30))
     stationIds = station_universe(stationInfos)
     distanceMatrix = distances(stationIds, stationInfos)
@@ -115,12 +116,12 @@ def angel_main():
     statusesDynBasket = stationStatusDynBasket(statuses)
     occupancyRates = stationOccupancyRates(statusesDynBasket)
     rides = angel_opportunities(occupancyRates, distanceMatrix, stationInfos,statusesDynBasket)
-    broadcast_rides(rides)
+    broadcast_rides(rides, outQ)
     #csp.print('Rides',rides)
 
 
-def runit() -> ThreadRunner:
-    runner = csp.run_on_thread(angel_main, realtime=True,starttime=datetime.utcnow())
+def runit( outQ : SimpleQueue = None ) -> ThreadRunner:
+    runner = csp.run_on_thread(angel_main, outQ, realtime=True,starttime=datetime.utcnow())
     return runner
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+from queue import SimpleQueue
+
 from flask import Flask, render_template, jsonify
 import threading
 import time
@@ -11,15 +13,16 @@ route_data = [
 
 # Background task to periodically update route data
 def background_task():
-    from angel import runit, GLOBAL_QUEUE
-    runit()
+    from angel import runit
+    cspQueue = SimpleQueue()
+    runit(cspQueue)
     global route_data
     while True:
         newAngelRoutes = []
         ##Drain the queue - get the last published updates
         try:
             while True:
-                newAngelRoutes = GLOBAL_QUEUE.get(block=False)
+                newAngelRoutes = cspQueue.get(block=False)
         except:
             pass
         if len(newAngelRoutes)>0:
@@ -43,10 +46,9 @@ thread = threading.Thread(target=background_task)
 thread.daemon = True
 thread.start()
 
-# Route to serve the map HTML (render map.html)
 @app.route('/')
 def index():
-    return render_template('map.html')  # Ensure that map.html is in the templates directory
+    return render_template('map.html')
 
 # Route to provide the current route data as JSON
 @app.route('/routes', methods=['GET'])
